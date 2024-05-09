@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34330.188
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharkUI", "SharkUI.csproj", "{3F5C610F-44BB-4F2B-9011-670CB38067E4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UITester", "..\UITester\UITester.csproj", "{965E2C79-18DD-4981-83E4-F3954C8A541F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3F5C610F-44BB-4F2B-9011-670CB38067E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F5C610F-44BB-4F2B-9011-670CB38067E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F5C610F-44BB-4F2B-9011-670CB38067E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F5C610F-44BB-4F2B-9011-670CB38067E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{965E2C79-18DD-4981-83E4-F3954C8A541F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{965E2C79-18DD-4981-83E4-F3954C8A541F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{965E2C79-18DD-4981-83E4-F3954C8A541F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{965E2C79-18DD-4981-83E4-F3954C8A541F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {65817787-A7D5-4B7D-BDA9-0F584581609F}
+	EndGlobalSection
+EndGlobal
