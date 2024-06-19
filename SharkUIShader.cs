@@ -11,7 +11,7 @@ namespace SharkUI
         private readonly Dictionary<string, int> _uniformLocations = [];
         private List<SharkUITexture> _textures = [];
         public int Handle() { return _handle; }
-        public SharkUIShader(string name, string vertexPath,  string fragmentPath, List<SharkUITexture> textures)
+        public SharkUIShader(string name, string vertexPath, string fragmentPath, List<SharkUITexture> textures)
         {
             Name = name;
             _textures = textures;

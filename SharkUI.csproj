@@ -21,6 +21,9 @@
     <None Update="SharkUI Resources\Shaders\SharkUIModelTexture.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="SharkUI Resources\Shaders\SharkUIText.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="SharkUI Resources\Shaders\SharkUITextureShader.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -9,28 +9,74 @@ namespace SharkUI
     {
         public Matrix4 modelMatrix;
         public List<string> text;
+        public List<int> lengths;
 
         public UIElement(Vector3 position, Vector2 scale, List<string>? text = null)
         {
             modelMatrix = Matrix4.CreateScale(scale.X, scale.Y, 0) * Matrix4.CreateTranslation(position);
             this.text = text ?? [];
+            lengths = [];
+            foreach (string t in this.text)
+                lengths.Add(t.Length);
+        }
+    }
+    struct UIList
+    {
+        public int size = 32;
+        public int head = 0;
+        public int VBO = -1;
+        public Queue<int> queue = new();
+        public int INSTANCE_BUFFER_SIZE = -1;
+
+        public UIList(int size)
+        {
+            this.size = size;
+        }
+
+        public void ExpandList()
+        {
+            size *= 2;
+            Tuple<float, float, int, int>[] data = new Tuple<float, float, int, int>[size];
+            //expand and copy data on GPU side
+            GL.BindBuffer(BufferTarget.ArrayBuffer, VBO);
+            GL.GetBufferSubData(BufferTarget.ArrayBuffer, 0, size * INSTANCE_BUFFER_SIZE, data);//HERE: should I split the arrays into a vec2 and int2 arrays?
+
+            GL.BufferData(BufferTarget.ArrayBuffer, uiList.size * INSTANCE_BUFFER_SIZE, Array.Empty<int>(), BufferUsageHint.DynamicRead);
+        }
+
+        public void Free(int i) => queue.Enqueue(i);
+
+        public int Reserve()
+        {
+            int index = queue.Count > 0 ? queue.Dequeue() : -1;
+            if (index < 0 && head >= size) ExpandList();
+            return head++;
         }
     }
     public class UIRenderer
     {
+        private const int OFFSET_BUFFER_STRIDE = 2 * sizeof(float);
+        private const int STRING_INFO_BUFFER_STRIDE = 2 * sizeof(int);
+
         private const string printName = "UIRenderer";
         private SharkUIShader? TextShader;
+        private int UITextOffsetBuffer;
+        private int UITextStringInfoBuffer;
+        private UIList uiList = new();
         private SharkUIShader? FontAtlasShader;
-        private bool _debugMode;
-        private List<Tuple<Guid, UIElement>> _elements = new();
+        private List<Tuple<Guid, UIElement, int>> _elements = new();
         private TextureAtlas _fontAtlas = new();
         private int displayKey = -1;
         private string root = "./SharkUI Resources/";
         private bool _canRender = false;
 
+        private bool _debugMode;
+        private bool _showAtlas = false;
+
         private KeyValuePair<char, Vector2> _defaultChar = new('*', new(0,0));
 
         private int fullScreenVAO;
+        private int UITextVAO;
         private readonly float[] squareVertices =
         {
             //Position      Uvs
@@ -52,8 +98,8 @@ namespace SharkUI
         public void Init()
         {
             _canRender = true;
-            //set up square object
-            if (_debugMode) Console.WriteLine(printName + ": Generating squareVAO");
+            //set up fullscreen object
+            if (_debugMode) Console.WriteLine(printName + ": Generating fullscreenVAO");
             fullScreenVAO = GL.GenVertexArray();
             GL.BindVertexArray(fullScreenVAO);
 
@@ -62,13 +108,51 @@ namespace SharkUI
             GL.BindBuffer(BufferTarget.ArrayBuffer, squareVBO);
             GL.BufferData(BufferTarget.ArrayBuffer, squareVertices.Length * sizeof(float), squareVertices, BufferUsageHint.StaticDraw);
 
-            if (_debugMode) Console.WriteLine(printName + ": Setting vertex attrib pointers");
+            if (_debugMode) Console.WriteLine(printName + ": Setting fullscreenVAO vertex attrib pointers");
             GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
             GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
 
-            if (_debugMode) Console.WriteLine(printName + ": Enabling vertex attrib arrays");
+            if (_debugMode) Console.WriteLine(printName + ": Enabling fullscreenVAO vertex attrib arrays");
             GL.EnableVertexAttribArray(0);
             GL.EnableVertexAttribArray(1);
+
+            if (_debugMode) Console.WriteLine(printName + ": Generating UITextVAO");
+            UITextVAO = GL.GenVertexArray();
+            GL.BindVertexArray(UITextVAO);
+
+            if (_debugMode) Console.WriteLine(printName + ": Setting UITextVAO vertex attrib pointers");
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+            GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+
+            if (_debugMode) Console.WriteLine(printName + ": Generating UITextVBO");
+            UITextOffsetBuffer = GL.GenBuffer();
+            UITextStringInfoBuffer = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, UITextOffsetBuffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, uiList.size * OFFSET_BUFFER_STRIDE, Array.Empty<float>(), BufferUsageHint.DynamicRead);
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, UITextStringInfoBuffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, uiList.size * STRING_INFO_BUFFER_STRIDE, Array.Empty<int>(), BufferUsageHint.DynamicRead);
+
+            GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, OFFSET_BUFFER_STRIDE,      0);
+            GL.VertexAttribPointer(3, 1, VertexAttribPointerType.Int,   false, STRING_INFO_BUFFER_STRIDE, 0);
+            GL.VertexAttribPointer(4, 1, VertexAttribPointerType.Int,   false, STRING_INFO_BUFFER_STRIDE, sizeof(int));
+
+            if (_debugMode) Console.WriteLine(printName + ": Enabling UITextVAO vertex attrib arrays");
+            GL.EnableVertexAttribArray(0);
+            GL.EnableVertexAttribArray(1);
+            GL.EnableVertexAttribArray(2);
+            GL.EnableVertexAttribArray(3);
+            GL.EnableVertexAttribArray(4);
+
+            //Set UITextVBO to change every instance instead of vertex
+            GL.VertexAttribDivisor(2, 1);
+            GL.VertexAttribDivisor(3, 1);
+            GL.VertexAttribDivisor(4, 1);
+
+            //unbind any VAO
+            GL.BindVertexArray(0);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+
 
             if (_debugMode) Console.WriteLine(printName + ": Initalizing font atlas");
             //set up font texture map
@@ -176,7 +260,7 @@ namespace SharkUI
             
             if (_debugMode) Console.WriteLine(printName + ": Generating shader\n");
             //make UI shader
-            TextShader = new("TextShader", root + "Shaders/SharkUIModelTexture.vert", root + "Shaders/SharkUIText.frag", [_fontAtlas.texture]);
+            TextShader = new("TextShader", root + "Shaders/SharkUIText.vert", root + "Shaders/SharkUIText.frag", [_fontAtlas.texture]);
             TextShader.SetTexture("fontAtlas", _fontAtlas.texture.Handle);
             if (TextShader.Handle() == -1) _canRender = false;
             //TODO put the char pos into a buffer to index into eg: FontAtlasShader.CreateBuffer("name?", charPositions);
@@ -201,22 +285,27 @@ namespace SharkUI
             GL.BlendFunc((BlendingFactor)BlendingFactorSrc.SrcAlpha, (BlendingFactor)BlendingFactorDest.One);   // set blending mode
             GL.Enable(EnableCap.Blend);                                                                         // enable blending
 
-            FontAtlasShader?.Enable();                                                                          // enable font atlas shader
-            FontAtlasShader?.SetFloat("opacity", 0f);                                                         // set opacity
-            FontAtlasShader?.SetAspectRatio(WindowSize.X, WindowSize.Y);                                        // set aspect ratio
-           //TODO FontAtlasShader?.SetInt("displayKey", displayKey);                                                  // set display key (-1 for none)
+            if (_showAtlas)
+            {
+                FontAtlasShader?.Enable();                                                                      // enable font atlas shader
+                FontAtlasShader?.SetFloat("opacity", 1f);                                                       // set opacity
+                FontAtlasShader?.SetAspectRatio(WindowSize.X, WindowSize.Y);                                    // set aspect ratio
+                //TODO for debug purposes FontAtlasShader?.SetInt("displayKey", displayKey);                    // set display key (-1 for none)
 
-            GL.BindVertexArray(fullScreenVAO);                                                                  // bind full screen VAO
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 6);                                                       // draw font atlas to framebuffer
+                GL.BindVertexArray(fullScreenVAO);                                                              // bind full screen VAO
+                GL.DrawArrays(PrimitiveType.Triangles, 0, 6);                                                   // draw font atlas to framebuffer
+            }
 
             TextShader?.Enable();                                                                               // enable text rendering shader
             //TextShader?.SetVec4("charMask", _fontAtlas.charMask);                                               // set font atlas char mask
-            TextShader?.SetVec2("gridDims", new(_fontAtlas.gridWidth, _fontAtlas.gridHeight));                  // set fonr atlas grid dimensions
+            TextShader?.SetVec2("gridDims", new(_fontAtlas.gridWidth, _fontAtlas.gridHeight));                  // set font atlas grid dimensions
+            TextShader?.SetFloat("opacity", 1f);                                                                // set opacity
 
             foreach (var entry in _elements)                                                                    // for each UI element
             {
                 //Guid guid = entry.Item1;
                 UIElement element = entry.Item2;
+                int IntstanceBufferIndex = entry.Item3; // Do I need this?
 
                 //set shader char position
                 TextShader?.SetVec2("charPos", GetCharacterPos(element.text[0][0]));                            // set character to be drawn
@@ -225,6 +314,7 @@ namespace SharkUI
                 //render square to screen position
                 GL.BindVertexArray(fullScreenVAO);                                                              // bind full screen VAO
                 GL.DrawArrays(PrimitiveType.Triangles, 0, 6);                                                   // draw element to framebuffer
+                //GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, 6, _elements.Count);                       // draw instanced elements to framebuffer
             }
 
             TextShader?.Disable();
@@ -233,13 +323,47 @@ namespace SharkUI
 
         public Vector2 GetCharacterPos(char c) => _fontAtlas.characterInfo.TryGetValue(c, out var pos) ? pos : _fontAtlas.characterInfo.FirstOrDefault(_defaultChar).Value;
 
+        private void RecalculateUIBuffer()
+        {
+            foreach (var entry in _elements)
+            {
+                UIElement element = entry.Item2;
+            }
+            GL.BindBuffer(BufferTarget.ArrayBuffer, UITextOffsetBuffer);
+            //GL.BufferData(BufferTarget.ArrayBuffer, uiList.size * OFFSET_BUFFER_STRIDE, Array.Empty<float>(), BufferUsageHint.DynamicRead);
+            //GL.BufferSubData(BufferTarget.ArrayBuffer, );
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, UITextStringInfoBuffer);
+            //.BufferData(BufferTarget.ArrayBuffer, uiList.size * STRING_INFO_BUFFER_STRIDE, Array.Empty<int>(), BufferUsageHint.DynamicRead);
+            //GL.BufferSubData(BufferTarget.ArrayBuffer, );
+
+            //GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, OFFSET_BUFFER_STRIDE,      0);
+            //GL.VertexAttribPointer(3, 1, VertexAttribPointerType.Int,   false, STRING_INFO_BUFFER_STRIDE, 0);
+            //GL.VertexAttribPointer(4, 1, VertexAttribPointerType.Int,   false, STRING_INFO_BUFFER_STRIDE, sizeof(int));
+
+            UIList uIList = new UIList();
+            uIList
+        }
+
+        //TODO: Add 2 functions to batch do below
         public Guid AddUIElement(Vector3 offset, Vector2 scale, List<string> text)
         {
             Guid guid = Guid.NewGuid();
-            _elements.Add(new(guid,new(offset, scale, text)));
+            _elements.Add(new(guid,new(offset, scale, text),-1));
+            RecalculateUIBuffer();
             return guid;
         }
 
-        public void RemoveUIElement(Guid id) { _elements = (List<Tuple<Guid, UIElement>>)_elements.Where(e => !e.Item1.Equals(id)); }
+        public void RemoveUIElement(Guid id) {
+            Tuple<Guid, UIElement, int>? item = _elements.Find(e => e.Item1.Equals(id));
+            if (item == null) return;
+
+            _elements.Remove(item);
+            // free the items slot in the uiList
+            uiList.Free(item.Item3);
+            RecalculateUIBuffer();
+        }
+
+        public void ShowAtlas(bool b) { _showAtlas = b; }
     }
 }
