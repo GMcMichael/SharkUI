@@ -3,14 +3,18 @@ using StbImageSharp;
 
 namespace SharkUI
 {
-    internal class SharkUITexture
+    public class SharkUITexture
     {
-        public int Handle { get { return _handle; } private set { _handle = value; } }
-        private int _handle = -1;
-        public int width = -1, height = -1;
+        public int Handle { get { return _handle; } }
+        public int Width { get { return width; } }
+        public int Height { get { return height; } }
+        private int _handle = -1, width = -1, height = -1;
         public SharkUITexture() {}
         public void Init(string texturePath, TextureUnit textureSlot = TextureUnit.Texture0)
         {
+            if (_handle != -1)
+                return;
+
             _handle = GL.GenTexture();
             GL.ActiveTexture(textureSlot);
             Enable();

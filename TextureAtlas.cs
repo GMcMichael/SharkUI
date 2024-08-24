@@ -2,7 +2,7 @@
 
 namespace SharkUI
 {
-    internal class TextureAtlas
+    public class TextureAtlas//TODO make this user friendly
     {
         public string path = "";
         public int gridWidth, gridHeight;
@@ -11,6 +11,17 @@ namespace SharkUI
         public Vector4 charMask;
 
         public TextureAtlas() {}
+        public TextureAtlas(string path, int gridWidth, int gridHeight, Vector4 charMask, Dictionary<char, Vector2> characterInfo)
+        {
+            this.path = path;
+            this.gridWidth = gridWidth;
+            this.gridHeight = gridHeight;
+            this.charMask = charMask;
+            this.characterInfo = characterInfo;
+        }
+        public void Init() => Init(OpenTK.Graphics.OpenGL4.TextureUnit.Texture0);
+        public void Init(OpenTK.Graphics.OpenGL4.TextureUnit textureSlot) => texture.Init(path, textureSlot);
+
         public void Init(string path, int gridWidth, int gridHeight, Vector4 charMask, Dictionary<char,Vector2> characterInfo) => Init(path, gridWidth, gridHeight, OpenTK.Graphics.OpenGL4.TextureUnit.Texture0, charMask, characterInfo);
         public void Init(string path, int gridWidth, int gridHeight, OpenTK.Graphics.OpenGL4.TextureUnit textureSlot, Vector4 charMask, Dictionary<char,Vector2> characterInfo)
         {

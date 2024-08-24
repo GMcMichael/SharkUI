@@ -5,7 +5,7 @@ namespace SharkUI
 {
     //Font atlas gotten from: https://lucide.github.io/Font-Atlas-Generator/
 
-    struct UIElement
+    internal struct UIElement
     {
         public Matrix4 modelMatrix;
         public List<string> text;
@@ -20,7 +20,7 @@ namespace SharkUI
                 lengths.Add(t.Length);
         }
     }
-    struct UIList
+    internal struct UIList
     {
         public int size = 32;
         public int head = 0;
@@ -39,9 +39,9 @@ namespace SharkUI
             Tuple<float, float, int, int>[] data = new Tuple<float, float, int, int>[size];
             //expand and copy data on GPU side
             GL.BindBuffer(BufferTarget.ArrayBuffer, VBO);
-            GL.GetBufferSubData(BufferTarget.ArrayBuffer, 0, size * INSTANCE_BUFFER_SIZE, data);//HERE: should I split the arrays into a vec2 and int2 arrays?
+            //GL.GetBufferSubData(BufferTarget.ArrayBuffer, 0, size * INSTANCE_BUFFER_SIZE, data);//HERE: should I split the arrays into a vec2 and int2 arrays?
 
-            GL.BufferData(BufferTarget.ArrayBuffer, uiList.size * INSTANCE_BUFFER_SIZE, Array.Empty<int>(), BufferUsageHint.DynamicRead);
+            //GL.BufferData(BufferTarget.ArrayBuffer, uiList.size * INSTANCE_BUFFER_SIZE, Array.Empty<int>(), BufferUsageHint.DynamicRead);
         }
 
         public void Free(int i) => queue.Enqueue(i);
@@ -257,9 +257,9 @@ namespace SharkUI
                 {  '}', new(13, 8) },
                 {  '~', new(14, 8) },
             });
-            
-            if (_debugMode) Console.WriteLine(printName + ": Generating shader\n");
+
             //make UI shader
+            if (_debugMode) Console.WriteLine(printName + ": Generating shader\n");
             TextShader = new("TextShader", root + "Shaders/SharkUIText.vert", root + "Shaders/SharkUIText.frag", [_fontAtlas.texture]);
             TextShader.SetTexture("fontAtlas", _fontAtlas.texture.Handle);
             if (TextShader.Handle() == -1) _canRender = false;
@@ -342,7 +342,7 @@ namespace SharkUI
             //GL.VertexAttribPointer(4, 1, VertexAttribPointerType.Int,   false, STRING_INFO_BUFFER_STRIDE, sizeof(int));
 
             UIList uIList = new UIList();
-            uIList
+            //uIList
         }
 
         //TODO: Add 2 functions to batch do below

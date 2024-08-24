@@ -88,7 +88,7 @@ namespace SharkUI
         {
             int targetIndex = Math.Max(0, targetTexture);
             float initialAspectRatio = windowWidth / windowHeight;
-            float targetAspectRatio = _textures[targetIndex].width / _textures[targetIndex].height;
+            float targetAspectRatio = _textures[targetIndex].Width / _textures[targetIndex].Height;
 
             float xScale = 1f;
             float yScale = 1f;
