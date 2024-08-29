@@ -73,6 +73,11 @@ namespace SharkUI
                 Console.WriteLine($"Error creating {Name} shader from sources:\nVertex: {vertexPath}\nFragment: {fragmentPath}\n");
             }
         }
+        public void ChangeTexture(int index, SharkUITexture texture)
+        {
+            if(index < _textures.Count && texture != null)
+                _textures[index] = texture;
+        }
 
         private void trySend(string uniformName, Action sendAction) { try { sendAction?.Invoke(); } catch { Console.WriteLine($"ERROR: Shader '{Name}' setting uniform using name: '{uniformName}'\n"); } }
 

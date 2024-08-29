@@ -38,14 +38,19 @@ namespace SharkUI
         private byte[] vertices = [];
         private int size;
 
-        private int vao;
-        private int vbo;
+        private int vao, vbo, charUVs;
 
         private readonly string root = "./SharkUI Resources/";
         private SharkUIShader? shader;
         private TextureAtlas? atlas;
         private TextureAtlas defaultAtlas;
-        public TextureAtlas Atlas { get { return atlas ?? defaultAtlas; } set { atlas = value; } }
+        public TextureAtlas Atlas {
+            get { return atlas ?? defaultAtlas; }
+            set {
+                atlas = value;
+                UpdateTexture(value);
+            }
+        }
 
         private UIBatcher()
         {
@@ -157,18 +162,32 @@ namespace SharkUI
             vertices = new byte[VERTEX_STRIDE * BATCH_SIZE];
             size = 0;
         }
-        
+
+        private void UpdateTexture(TextureAtlas newAtlas)
+        {
+            shader?.ChangeTexture(0, newAtlas.texture);
+            shader?.SetTexture("fontAtlas", newAtlas.texture.Handle);
+            //buffer char data to gpu (if initiated, check bool)
+            GL.BindBuffer(BufferTarget.ArrayBuffer, charUVs);
+            GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * 2 * newAtlas.characterInfo.Count, newAtlas, BufferUsageHint.StaticRead);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+        }
+
         public void initBatch()
         {
             //TODO: free current gpu mem if exists
             defaultAtlas.Init();
 
             //make batch text shader
-            shader = new("BatchTextShader", root + "Shaders/TestUIText.vert", root + "Shaders/TestUIText.frag", [(atlas ?? defaultAtlas).texture]);
-            shader.SetTexture("fontAtlas", (atlas ?? defaultAtlas).texture.Handle);
+            charUVs = GL.GenBuffer();
+            shader = new("BatchTextShader", root + "Shaders/TestUIText.vert", root + "Shaders/TestUIText.frag", [Atlas.texture]);
+            UpdateTexture(Atlas);
 
             vao = GL.GenVertexArray();
             GL.BindVertexArray(vao);
+            
+            GL.BindBuffer(BufferTarget.ArrayBuffer, charUVs);
+            //TODO: add shader reference to charUVs
 
             vbo = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
@@ -189,6 +208,9 @@ namespace SharkUI
             //charIndex
             GL.VertexAttribPointer(3, 1, VertexAttribPointerType.Int, false, VERTEX_STRIDE, 7 * sizeof(float));
             GL.EnableVertexAttribArray(3);
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindVertexArray(0);
         }
 
         public void flushBatch()//TODO: test having a static buffer, one large (like 1 kb, 10 kb, ..., 1 mb) buffer thats reused through sub buffer
@@ -256,8 +278,12 @@ namespace SharkUI
             }
         }
 
-        //public void addMenu(string[] text, Vector2 xy, Vector4 rgba, float scale) { }
-        //TODO: buttons though buttonclick captures? (eg. add button at xy with width and height, then if a click happens I can check the bounding box)
-        //maybe a uiElement idea, just a simple internal struct saying either just "text", or "text" and Action.
+        /*TODO:
+         * make texures apply
+         * add z levels
+         * buttons though buttonclick captures? (eg. add button at xy with width and height, then if a click happens I can check the bounding box)
+         * split into static and dynamic buffers
+         * add menus (rows and cols with some cols/rows being dynamic)
+         */
     }
 }
