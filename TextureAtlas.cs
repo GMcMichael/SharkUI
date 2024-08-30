@@ -1,4 +1,5 @@
 ﻿using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace SharkUI
 {
@@ -6,6 +7,7 @@ namespace SharkUI
     {
         public string path = "";
         public int gridWidth, gridHeight;
+        public Vector2[] UVs;
         public Dictionary<char, Vector2> characterInfo = [];
         public SharkUITexture texture = new();
         public Vector4 charMask;

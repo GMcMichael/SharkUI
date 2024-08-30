@@ -8,5 +8,6 @@ uniform sampler2D fontAtlas;
 
 void main()
 {
+	//TODO: change to times
    FragColor = vColor + texture(fontAtlas, vUV).rrrr;
 }

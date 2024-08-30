@@ -1,6 +1,5 @@
 ﻿using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using System.Drawing;
 
 namespace SharkUI
 {
@@ -165,12 +164,18 @@ namespace SharkUI
 
         private void UpdateTexture(TextureAtlas newAtlas)
         {
-            shader?.ChangeTexture(0, newAtlas.texture);
-            shader?.SetTexture("fontAtlas", newAtlas.texture.Handle);
-            //buffer char data to gpu (if initiated, check bool)
-            GL.BindBuffer(BufferTarget.ArrayBuffer, charUVs);
-            GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * 2 * newAtlas.characterInfo.Count, newAtlas, BufferUsageHint.StaticRead);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            //if shader and GL aren't initialized, return
+            if (shader == null) return;
+
+            shader.ChangeTexture(0, newAtlas.texture);
+            shader.SetTexture("fontAtlas", newAtlas.texture.Handle);
+
+            //buffer char data to gpu
+            GL.BindBuffer(BufferTarget.UniformBuffer, charUVs);
+            GL.BufferData(BufferTarget.UniformBuffer, sizeof(float) * 2 * newAtlas.UVs.Length, newAtlas.UVs, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.UniformBuffer, 0);
+
+            shader.SetUniformBlock();
         }
 
         public void initBatch()
@@ -186,7 +191,7 @@ namespace SharkUI
             vao = GL.GenVertexArray();
             GL.BindVertexArray(vao);
             
-            GL.BindBuffer(BufferTarget.ArrayBuffer, charUVs);
+            GL.BindBuffer(BufferTarget.UniformBuffer, charUVs);
             //TODO: add shader reference to charUVs
 
             vbo = GL.GenBuffer();
@@ -210,6 +215,7 @@ namespace SharkUI
             GL.EnableVertexAttribArray(3);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindBuffer(BufferTarget.UniformBuffer, 0);
             GL.BindVertexArray(0);
         }
 
