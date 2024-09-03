@@ -167,15 +167,16 @@ namespace SharkUI
             //if shader and GL aren't initialized, return
             if (shader == null) return;
 
-            shader.ChangeTexture(0, newAtlas.texture);
-            shader.SetTexture("fontAtlas", newAtlas.texture.Handle);
+            shader.ChangeTexture(0, newAtlas.Texture);
+            shader.SetTexture("fontAtlas", newAtlas.Texture.Handle);
 
-            //buffer char data to gpu
+            //send char data to buffer
             GL.BindBuffer(BufferTarget.UniformBuffer, charUVs);
-            GL.BufferData(BufferTarget.UniformBuffer, sizeof(float) * 2 * newAtlas.UVs.Length, newAtlas.UVs, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.UniformBuffer, sizeof(float) * 2 * newAtlas.UVs.Count, newAtlas.UVs.ToArray(), BufferUsageHint.StaticDraw);//TODO: UVs may not be passed right
             GL.BindBuffer(BufferTarget.UniformBuffer, 0);
 
-            shader.SetUniformBlock();
+            //attach buffer to uniform block binding
+            shader.SetUniformBlock(0, charUVs);
         }
 
         public void initBatch()
@@ -185,7 +186,7 @@ namespace SharkUI
 
             //make batch text shader
             charUVs = GL.GenBuffer();
-            shader = new("BatchTextShader", root + "Shaders/TestUIText.vert", root + "Shaders/TestUIText.frag", [Atlas.texture]);
+            shader = new("BatchTextShader", root + "Shaders/TestUIText.vert", root + "Shaders/TestUIText.frag", [Atlas.Texture]);
             UpdateTexture(Atlas);
 
             vao = GL.GenVertexArray();
@@ -228,9 +229,17 @@ namespace SharkUI
             GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * VERTEX_STRIDE * BATCH_SIZE, (nint)null, BufferUsageHint.DynamicDraw);//just clear buffer?
             GL.BufferSubData(BufferTarget.ArrayBuffer, 0, size * VERTEX_STRIDE, vertices);
 
-            //draw uploaded buffer
+            //TODO: check if I need any parts of these anywhere
+            //FontAtlasShader?.SetAspectRatio(WindowSize.X, WindowSize.Y);
+            //modelMatrix = Matrix4.CreateScale(scale.X, scale.Y, 0) * Matrix4.CreateTranslation(position);
+
+            //set GL state
+            GL.BlendFunc((BlendingFactor)BlendingFactorSrc.SrcAlpha, (BlendingFactor)BlendingFactorDest.One);   // set blending mode
+            GL.Enable(EnableCap.Blend);
             shader?.Enable();
             GL.PointSize(WIDTH);
+
+            //draw uploaded buffer
             GL.BindVertexArray(vao);
             GL.DrawArrays(PrimitiveType.Points, 0, size);
             shader?.Disable();
@@ -238,7 +247,7 @@ namespace SharkUI
             size = 0;
         }
 
-        private void insert(int charCode, Vector2 xy, Vector4 rgba, float scale)
+        private void insert(int charIndex, Vector2 xy, Vector4 rgba, float scale)
         {
             if (size >= BATCH_SIZE)
                 flushBatch();
@@ -260,7 +269,7 @@ namespace SharkUI
             BitConverter.GetBytes(rgba.W).CopyTo(vertices, index + (5 * floatSize));
 
             BitConverter.GetBytes(scale).CopyTo(vertices, index + (6 * floatSize));
-            BitConverter.GetBytes(charCode).CopyTo(vertices, index + (7 * floatSize));
+            BitConverter.GetBytes(charIndex).CopyTo(vertices, index + (7 * floatSize));
         }
 
         public void insertChar(int charCode, Vector2 xy, Vector4 rgba, float scale) => insert(charCode, xy, rgba, scale);
@@ -273,14 +282,14 @@ namespace SharkUI
             for (int i = 0; i < text.Length; i++)
             {
                 c = text[i];
-                if (!texAtlas.characterInfo.ContainsKey(c))
+                if (!texAtlas.UVIndices.TryGetValue(c, out int index))
                 {
                     Console.WriteLine($"Unknown character ({c})");
                     continue;
                 }
 
                 //Console.WriteLine($"i: {i}, offset: {offset}, coords: {xy + (offset*i)}");
-                insert(c, xy + (offset*i), rgba, scale);
+                insert(index, xy + (offset*i), rgba, scale);
             }
         }
 

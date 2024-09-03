@@ -1,5 +1,4 @@
 ﻿using OpenTK.Mathematics;
-using System.Numerics;
 
 namespace SharkUI
 {
@@ -7,9 +6,11 @@ namespace SharkUI
     {
         public string path = "";
         public int gridWidth, gridHeight;
-        public Vector2[] UVs;
-        public Dictionary<char, Vector2> characterInfo = [];
-        public SharkUITexture texture = new();
+        public List<(float, float)> UVs = [];
+        public Dictionary<char, int> UVIndices = [];
+        public SharkUITexture Texture { get { return texture; } }
+        private SharkUITexture texture = new();
+        private Dictionary<char, Vector2> characterInfo = [];
         public Vector4 charMask;
 
         public TextureAtlas() {}
@@ -20,6 +21,7 @@ namespace SharkUI
             this.gridHeight = gridHeight;
             this.charMask = charMask;
             this.characterInfo = characterInfo;
+            FillUVArray();
         }
         public void Init() => Init(OpenTK.Graphics.OpenGL4.TextureUnit.Texture0);
         public void Init(OpenTK.Graphics.OpenGL4.TextureUnit textureSlot) => texture.Init(path, textureSlot);
@@ -32,7 +34,19 @@ namespace SharkUI
             this.gridHeight = gridHeight;
             this.charMask = charMask;
             this.characterInfo = characterInfo;
+            FillUVArray();
             texture.Init(path, textureSlot);
+        }
+
+        private void FillUVArray()
+        {
+            UVIndices.Clear();
+            UVs.Clear();
+            foreach (var item in characterInfo)
+            {
+                UVIndices.Add(item.Key, UVs.Count);
+                UVs.Add((item.Value.X, item.Value.Y));
+            }
         }
 
         public override string ToString()

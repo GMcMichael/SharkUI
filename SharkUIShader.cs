@@ -84,7 +84,8 @@ namespace SharkUI
         public void SetUniformBlock(int blockIndex, int buffer)
         {
             if (_handle == -1) return;
-            
+            //TODO: update to BufferRange to allow for multiple blocks in one buffer
+            GL.BindBufferBase(BufferRangeTarget.UniformBuffer, blockIndex, buffer);
         }
 
         private void trySend(string uniformName, Action sendAction) { try { sendAction?.Invoke(); } catch { Console.WriteLine($"ERROR: Shader '{Name}' setting uniform using name: '{uniformName}'\n"); } }
