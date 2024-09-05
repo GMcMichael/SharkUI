@@ -81,9 +81,10 @@ namespace SharkUI
                 _textures[index] = texture;
         }
 
-        public void SetUniformBlock(int blockIndex, int buffer)
+        public void SetUniformBlock(string name, int blockIndex, int buffer)
         {
             if (_handle == -1) return;
+            GL.UniformBlockBinding(_handle, GL.GetUniformBlockIndex(_handle, name), blockIndex);
             //TODO: update to BufferRange to allow for multiple blocks in one buffer
             GL.BindBufferBase(BufferRangeTarget.UniformBuffer, blockIndex, buffer);
         }

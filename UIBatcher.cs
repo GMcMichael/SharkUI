@@ -8,7 +8,8 @@ namespace SharkUI
         public static UIBatcher Instance { get { return instance; } }
         private static UIBatcher instance = new();
 
-        private readonly int VERTEX_STRIDE = 7 * sizeof(float) + sizeof(int);//x,y,  r,g,b,a,  scale, charIndex
+        private readonly int INFO_STRIDE = 7 * sizeof(float);//x,y,  r,g,b,a,  scale
+        private readonly int INDEX_STRIDE = sizeof(int);//charIndex
         public int BATCH_SIZE = 100;//TODO: number of chars per batch, 10kb / 32 bytes = 3,125
         public int BatchSize
         {
@@ -34,10 +35,11 @@ namespace SharkUI
         private Vector2? SCREEN_SIZE = null;
         public Vector2 ScreenSize { set { SCREEN_SIZE = value; } }
 
-        private byte[] vertices = [];
+        private byte[] vertexInfo = [];
+        private int[] vertexIndices = [];
         private int size;
 
-        private int vao, vbo, charUVs;
+        private int vao, infoBuffer, indexBuffer, charUVs;
 
         private readonly string root = "./SharkUI Resources/";
         private SharkUIShader? shader;
@@ -54,7 +56,7 @@ namespace SharkUI
         private UIBatcher()
         {
             initVertices();
-            defaultAtlas = new(root + "/Fonts/Courier.png", 16, 16, new(0.25f, 0.25f, 0.2f, 0.2f), new Dictionary<char, Vector2> {
+            defaultAtlas = new(root + "/Fonts/Courier.png", 16, 16, new(1f/17f, 1f/17f), new Dictionary<char, Vector2> {
                 {  '!', new( 1, 13) },
                 { '\"', new( 2, 13) },
                 {  '#', new( 3, 13) },
@@ -158,7 +160,8 @@ namespace SharkUI
         }
         private void initVertices()
         {
-            vertices = new byte[VERTEX_STRIDE * BATCH_SIZE];
+            vertexInfo = new byte[INFO_STRIDE * BATCH_SIZE];
+            vertexIndices = new int[BATCH_SIZE];
             size = 0;
         }
 
@@ -172,11 +175,11 @@ namespace SharkUI
 
             //send char data to buffer
             GL.BindBuffer(BufferTarget.UniformBuffer, charUVs);
-            GL.BufferData(BufferTarget.UniformBuffer, sizeof(float) * 2 * newAtlas.UVs.Count, newAtlas.UVs.ToArray(), BufferUsageHint.StaticDraw);//TODO: UVs may not be passed right
+            GL.BufferData(BufferTarget.UniformBuffer, sizeof(float) * 2 * newAtlas.UVs.Count, newAtlas.UVs.ToArray(), BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.UniformBuffer, 0);
 
             //attach buffer to uniform block binding
-            shader.SetUniformBlock(0, charUVs);
+            shader.SetUniformBlock("Atlas", 0, charUVs);
         }
 
         public void initBatch()
@@ -193,26 +196,29 @@ namespace SharkUI
             GL.BindVertexArray(vao);
             
             GL.BindBuffer(BufferTarget.UniformBuffer, charUVs);
-            //TODO: add shader reference to charUVs
 
-            vbo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, BATCH_SIZE * VERTEX_STRIDE, (nint)null, BufferUsageHint.DynamicDraw);
+            infoBuffer = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, infoBuffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, BATCH_SIZE * INFO_STRIDE, (nint)null, BufferUsageHint.DynamicDraw);
 
             //x,y
-            GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, VERTEX_STRIDE, 0);
+            GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, INFO_STRIDE, 0);
             GL.EnableVertexAttribArray(0);
 
             //r,g,b,a
-            GL.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, VERTEX_STRIDE, 2 * sizeof(float));
+            GL.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, INFO_STRIDE, 2 * sizeof(float));
             GL.EnableVertexAttribArray(1);
 
             //scale
-            GL.VertexAttribPointer(2, 1, VertexAttribPointerType.Float, false, VERTEX_STRIDE, 6 * sizeof(float));
+            GL.VertexAttribPointer(2, 1, VertexAttribPointerType.Float, false, INFO_STRIDE, 6 * sizeof(float));
             GL.EnableVertexAttribArray(2);
 
+            indexBuffer = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, indexBuffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, BATCH_SIZE * INDEX_STRIDE, (nint)null, BufferUsageHint.DynamicDraw);
+
             //charIndex
-            GL.VertexAttribPointer(3, 1, VertexAttribPointerType.Int, false, VERTEX_STRIDE, 7 * sizeof(float));
+            GL.VertexAttribPointer(3, 1, VertexAttribPointerType.Int, false, INFO_STRIDE, 0);
             GL.EnableVertexAttribArray(3);
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
@@ -225,19 +231,27 @@ namespace SharkUI
             if (size <= 0) return;
 
             // clear gpu buffer, upload cpu
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * VERTEX_STRIDE * BATCH_SIZE, (nint)null, BufferUsageHint.DynamicDraw);//just clear buffer?
-            GL.BufferSubData(BufferTarget.ArrayBuffer, 0, size * VERTEX_STRIDE, vertices);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, infoBuffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, INFO_STRIDE * BATCH_SIZE, (nint)null, BufferUsageHint.DynamicDraw);//just clear buffer?
+            GL.BufferSubData(BufferTarget.ArrayBuffer, 0, size * INFO_STRIDE, vertexInfo);
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, indexBuffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, INDEX_STRIDE * BATCH_SIZE, (nint)null, BufferUsageHint.DynamicDraw);
+            GL.BufferSubData(BufferTarget.ArrayBuffer, 0, size * INDEX_STRIDE, vertexIndices);
 
             //TODO: check if I need any parts of these anywhere
             //FontAtlasShader?.SetAspectRatio(WindowSize.X, WindowSize.Y);
             //modelMatrix = Matrix4.CreateScale(scale.X, scale.Y, 0) * Matrix4.CreateTranslation(position);
 
             //set GL state
-            GL.BlendFunc((BlendingFactor)BlendingFactorSrc.SrcAlpha, (BlendingFactor)BlendingFactorDest.One);   // set blending mode
-            GL.Enable(EnableCap.Blend);
-            shader?.Enable();
-            GL.PointSize(WIDTH);
+            GL.BlendFunc((BlendingFactor)BlendingFactorSrc.SrcAlpha, (BlendingFactor)BlendingFactorDest.One);   //set blending mode
+            GL.Enable(EnableCap.Blend);                                                                         //enable blending
+            GL.Disable(EnableCap.ProgramPointSize);                                                             //stop shader from setting point size
+            GL.PointSize(WIDTH);                                                                                //set point size
+            GL.PointParameter(PointParameterName.PointSpriteCoordOrigin, (float)All.LowerLeft);                 //set uv origin to lower left
+            shader?.Enable();                                                                                   //enable text shader
+
+            shader?.SetVec2("CharMask", Atlas.charMask);
 
             //draw uploaded buffer
             GL.BindVertexArray(vao);
@@ -245,6 +259,9 @@ namespace SharkUI
             shader?.Disable();
 
             size = 0;
+
+            //TODO: read index buffer back and check values
+            //maybe, try and see if senfin uv floats is easier
         }
 
         private void insert(int charIndex, Vector2 xy, Vector4 rgba, float scale)
@@ -258,18 +275,21 @@ namespace SharkUI
 
             //Console.WriteLine($"param: {xy}, proc: {XY}, reversed: {(XY + Vector2.One)/2 * ScreenSize}");
 
-            int index = size++ * VERTEX_STRIDE;
+            int index = size * INFO_STRIDE;//TODO: am I writing the buyes to the correct spots? go debug and watch memory
             int floatSize = sizeof(float);
-            BitConverter.GetBytes(XY.X).CopyTo(vertices, index);
-            BitConverter.GetBytes(XY.Y).CopyTo(vertices, index + floatSize);
+            BitConverter.GetBytes(XY.X).CopyTo(vertexInfo, index);
+            BitConverter.GetBytes(XY.Y).CopyTo(vertexInfo, index + floatSize);
 
-            BitConverter.GetBytes(rgba.X).CopyTo(vertices, index + (2 * floatSize));
-            BitConverter.GetBytes(rgba.Y).CopyTo(vertices, index + (3 * floatSize));
-            BitConverter.GetBytes(rgba.Z).CopyTo(vertices, index + (4 * floatSize));
-            BitConverter.GetBytes(rgba.W).CopyTo(vertices, index + (5 * floatSize));
+            BitConverter.GetBytes(rgba.X).CopyTo(vertexInfo, index + (2 * floatSize));
+            BitConverter.GetBytes(rgba.Y).CopyTo(vertexInfo, index + (3 * floatSize));
+            BitConverter.GetBytes(rgba.Z).CopyTo(vertexInfo, index + (4 * floatSize));
+            BitConverter.GetBytes(rgba.W).CopyTo(vertexInfo, index + (5 * floatSize));
 
-            BitConverter.GetBytes(scale).CopyTo(vertices, index + (6 * floatSize));
-            BitConverter.GetBytes(charIndex).CopyTo(vertices, index + (7 * floatSize));
+            BitConverter.GetBytes(scale).CopyTo(vertexInfo, index + (6 * floatSize));
+
+            //BitConverter.GetBytes(charIndex).CopyTo(vertexIndices, size * INDEX_STRIDE);
+            vertexIndices[size] = charIndex;
+            size++;
         }
 
         public void insertChar(int charCode, Vector2 xy, Vector4 rgba, float scale) => insert(charCode, xy, rgba, scale);
@@ -288,7 +308,7 @@ namespace SharkUI
                     continue;
                 }
 
-                //Console.WriteLine($"i: {i}, offset: {offset}, coords: {xy + (offset*i)}");
+                //Console.WriteLine($"i: {i}, char: {c}, index: {index}");
                 insert(index, xy + (offset*i), rgba, scale);
             }
         }

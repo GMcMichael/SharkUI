@@ -11,41 +11,45 @@ namespace SharkUI
         public SharkUITexture Texture { get { return texture; } }
         private SharkUITexture texture = new();
         private Dictionary<char, Vector2> characterInfo = [];
-        public Vector4 charMask;
+        public Vector2 charMask;
 
         public TextureAtlas() {}
-        public TextureAtlas(string path, int gridWidth, int gridHeight, Vector4 charMask, Dictionary<char, Vector2> characterInfo)
+        public TextureAtlas(string path, int gridWidth, int gridHeight, Vector2 charMask, Dictionary<char, Vector2> characterInfo)
         {
             this.path = path;
             this.gridWidth = gridWidth;
             this.gridHeight = gridHeight;
             this.charMask = charMask;
             this.characterInfo = characterInfo;
-            FillUVArray();
         }
         public void Init() => Init(OpenTK.Graphics.OpenGL4.TextureUnit.Texture0);
-        public void Init(OpenTK.Graphics.OpenGL4.TextureUnit textureSlot) => texture.Init(path, textureSlot);
-
-        public void Init(string path, int gridWidth, int gridHeight, Vector4 charMask, Dictionary<char,Vector2> characterInfo) => Init(path, gridWidth, gridHeight, OpenTK.Graphics.OpenGL4.TextureUnit.Texture0, charMask, characterInfo);
-        public void Init(string path, int gridWidth, int gridHeight, OpenTK.Graphics.OpenGL4.TextureUnit textureSlot, Vector4 charMask, Dictionary<char,Vector2> characterInfo)
+        public void Init(OpenTK.Graphics.OpenGL4.TextureUnit textureSlot) => Init(path, textureSlot);
+        public void Init(string path, int gridWidth, int gridHeight, Vector2 charMask, Dictionary<char, Vector2> characterInfo) => Init(path, gridWidth, gridHeight, OpenTK.Graphics.OpenGL4.TextureUnit.Texture0, charMask, characterInfo);
+        public void Init(string path, int gridWidth, int gridHeight, OpenTK.Graphics.OpenGL4.TextureUnit textureSlot, Vector2 charMask, Dictionary<char, Vector2> characterInfo)
         {
             this.path = path;
             this.gridWidth = gridWidth;
             this.gridHeight = gridHeight;
             this.charMask = charMask;
             this.characterInfo = characterInfo;
-            FillUVArray();
+            Init(path, textureSlot);
+        }
+        public void Init(string path, OpenTK.Graphics.OpenGL4.TextureUnit textureSlot)
+        {
             texture.Init(path, textureSlot);
+            FillUVArray();
         }
 
         private void FillUVArray()
         {
             UVIndices.Clear();
             UVs.Clear();
+
+            Vector2 gridStride = new(1f / gridWidth, 1f / gridHeight);
             foreach (var item in characterInfo)
             {
                 UVIndices.Add(item.Key, UVs.Count);
-                UVs.Add((item.Value.X, item.Value.Y));
+                UVs.Add((item.Value.X * gridStride.X, item.Value.Y * gridStride.Y));
             }
         }
 
